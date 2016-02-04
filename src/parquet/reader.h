@@ -127,6 +127,7 @@ class ParquetFileReader {
   }
 
   void DebugPrint(std::ostream& stream, bool print_values = true);
+  void JsonPrint(std::ostream& stream);
 
  private:
   friend class RowGroupReader;

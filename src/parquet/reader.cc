@@ -332,4 +332,34 @@ void ParquetFileReader::DebugPrint(std::ostream& stream, bool print_values) {
   }
 }
 
+
+void ParquetFileReader::JsonPrint(std::ostream& stream) {
+  if (!parsed_metadata_) {
+    ParseMetaData();
+  }
+
+  for (int i = 0; i < metadata_.row_groups.size(); ++i) {
+    RowGroupReader* group_reader = RowGroup(i);
+
+    // Create readers for all columns and print contents
+    size_t nColumns = group_reader->num_columns();
+    vector<std::shared_ptr<Scanner> > scanners(nColumns, NULL);
+    for (int c = 0; c < nColumns; ++c) {
+      // This is OK in this method as long as the RowGroupReader does not get deleted
+      scanners[c] = Scanner::Make(group_reader->Column(c));
+    }
+
+    for (int64_t rows = group_reader->column_metadata(0)->num_values; rows > 0; rows--) {
+      stream << "{";
+      for (int c = 0; c < nColumns; ++c) {
+        if (c > 0) { stream << ", "; }
+        stream << "\"" << metadata_.schema[c+1].name << "\" :  ";
+        stream << scanners[c]->NextToString();
+      }
+      stream << "}\n";
+    }
+  }
+}
+
+
 } // namespace parquet_cpp

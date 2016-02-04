@@ -52,7 +52,8 @@ int main(int argc, char** argv) {
   try {
     reader.Open(&file);
     reader.ParseMetaData();
-    reader.DebugPrint(std::cout, print_values);
+//    reader.DebugPrint(std::cout, print_values);
+    reader.JsonPrint(std::cout);
   } catch (const std::exception& e) {
     std::cerr << "Parquet error: "
               << e.what()

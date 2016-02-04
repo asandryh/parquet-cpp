@@ -52,6 +52,8 @@ class Scanner {
 
   virtual void PrintNext(std::ostream& out, int width) = 0;
 
+  virtual std::string NextToString() = 0;
+
   bool HasNext() {
     return value_offset_ < values_buffered_ || reader_->HasNext();
   }
@@ -158,15 +160,49 @@ class TypedScanner : public Scanner {
     out << buffer;
   }
 
+  virtual std::string NextToString() {
+    T val;
+    bool is_null;
+    NextValue(&val, &is_null);
+    if (is_null) {
+      return std::string("NULL");
+    } else {
+      return ValueToString(val);
+    }
+  }
+
  private:
   // The ownership of this object is expressed through the reader_ variable in the base
   TypedColumnReader<TYPE>* typed_reader_;
 
   inline void FormatValue(void* val, char* buffer, size_t bufsize, size_t width);
+  inline std::string ValueToString(T& val);
 
   T* values_;
 };
 
+template <int TYPE>
+inline std::string TypedScanner<TYPE>::ValueToString(T& val) {
+  std::stringstream ss;
+  ss << val;
+  return ss.str();
+}
+
+template <>
+inline std::string TypedScanner<parquet::Type::INT96>::ValueToString(T& val) {
+  return Int96ToString(val);
+}
+
+template <>
+inline std::string TypedScanner<parquet::Type::BYTE_ARRAY>::ValueToString(T& val) {
+  return ByteArrayToString(val);
+}
+
+template <>
+inline std::string TypedScanner<parquet::Type::FIXED_LEN_BYTE_ARRAY>::ValueToString(
+    T& val) {
+  return FixedLenByteArrayToString(val, schema()->type_length);
+}
 
 template <int TYPE>
 inline void TypedScanner<TYPE>::FormatValue(void* val, char* buffer,
