@@ -42,7 +42,7 @@ class Scanner {
       value_offset_(0),
       values_buffered_(0),
       reader_(reader) {
-    def_levels_.resize( reader_->descr()->max_definition_level() > 0 ? batch_size_ : 0);
+    def_levels_.resize(reader_->descr()->max_definition_level() > 0 ? batch_size_ : 0);
     rep_levels_.resize(batch_size_);
   }
 
@@ -68,7 +68,6 @@ class Scanner {
   }
 
  protected:
-
   size_t batch_size_;
 
   std::vector<int16_t> def_levels_;
@@ -167,7 +166,7 @@ class TypedScanner : public Scanner {
       }
     }
     *rep_level = 1;
-    *def_level = is_required ? *rep_level : def_levels_[level_offset_] ;
+    *def_level = is_required ? *rep_level : def_levels_[level_offset_];
     level_offset_++;
 
     return true;
