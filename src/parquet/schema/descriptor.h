@@ -114,8 +114,14 @@ class SchemaDescriptor {
     return schema_;
   }
 
+  bool no_group_nodes() const {
+    return (num_groups_ == 0);
+  }
+
  private:
   friend class ColumnDescriptor;
+
+  int num_groups_;
 
   schema::NodePtr schema_;
   const schema::GroupNode* group_;

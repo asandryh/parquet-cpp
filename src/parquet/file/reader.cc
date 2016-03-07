@@ -46,12 +46,12 @@ RowGroupReader::RowGroupReader(const SchemaDescriptor* schema,
     contents_(std::move(contents)),
     allocator_(allocator) {}
 
-int RowGroupReader::num_columns() const {
-  return contents_->num_columns();
-}
-
 int64_t RowGroupReader::num_rows() const {
   return contents_->num_rows();
+}
+
+int RowGroupReader::num_columns() const {
+  return contents_->num_columns();
 }
 
 std::shared_ptr<ColumnReader> RowGroupReader::Column(int i) {

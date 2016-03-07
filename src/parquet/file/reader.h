@@ -26,6 +26,7 @@
 
 #include "parquet/column/page.h"
 #include "parquet/schema/descriptor.h"
+#include "parquet/util/input.h"
 
 namespace parquet {
 
