@@ -40,7 +40,9 @@ class Reader {
   virtual boost::shared_ptr<RowGroup> GetRowGroup(int i) = 0;
   // API to return a Reader
   static boost::shared_ptr<Reader> getReader(ExternalInputStream* stream,
-      const MemoryAllocator* pool = NULL);
+      MemoryAllocator* pool = default_allocator());
+  virtual int64_t EstimateMemoryUsage(std::list<int>& selected_columns,
+      int64_t batch_size) = 0;
 };
 
 } // namespace parquet

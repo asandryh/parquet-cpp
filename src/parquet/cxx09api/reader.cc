@@ -17,7 +17,7 @@ namespace parquet {
 // A stream-like object that reads from an ExternalInputStream
 class StreamSource : public RandomAccessSource {
  public:
-  explicit StreamSource(ExternalInputStream* stream);
+  explicit StreamSource(ExternalInputStream* stream, MemoryAllocator* pool);
   virtual void Close() {}
   virtual int64_t Tell() const;
   virtual void Seek(int64_t pos);
@@ -28,12 +28,13 @@ class StreamSource : public RandomAccessSource {
   // parquet-cpp should not manage this object
   ExternalInputStream* stream_;
   int64_t offset_;
+  MemoryAllocator* pool_;
 };
 
 // ----------------------------------------------------------------------
 // StreamSource
-StreamSource::StreamSource(ExternalInputStream* stream) :
-    stream_(stream), offset_(0) {
+StreamSource::StreamSource(ExternalInputStream* stream, MemoryAllocator* pool) :
+    stream_(stream), offset_(0), pool_(pool) {
   size_ = stream->GetLength();
 }
 
@@ -61,8 +62,7 @@ int64_t StreamSource::Read(int64_t nbytes, uint8_t* out) {
 
 std::shared_ptr<Buffer> StreamSource::Read(int64_t nbytes) {
     int64_t bytes_available = std::min(nbytes, size_ - offset_);
-    auto result = std::make_shared<OwnedMutableBuffer>();
-    result->Resize(bytes_available);
+    auto result = std::make_shared<OwnedMutableBuffer>(bytes_available, pool_);
 
     int64_t bytes_read = 0;
     bytes_read = stream_->Read(bytes_available, offset_, result->mutable_data());
@@ -77,8 +77,9 @@ template <int TYPE>
 class ParquetTypedScanner : public ParquetScanner {
  public:
   typedef typename type_traits<TYPE>::value_type T;
-  ParquetTypedScanner(std::shared_ptr<ColumnReader> creader, int batch_size) {
-    scanner_ = std::make_shared<TypedScanner<TYPE> >(creader, batch_size);
+  ParquetTypedScanner(std::shared_ptr<ColumnReader> creader,
+      int batch_size, MemoryAllocator* pool) {
+    scanner_ = std::make_shared<TypedScanner<TYPE> >(creader, batch_size, pool);
   }
   bool NextValue(uint8_t* val, bool* is_null) {
     return scanner_->NextValue(reinterpret_cast<T*>(val), is_null);
@@ -97,8 +98,8 @@ typedef ParquetTypedScanner<Type::FIXED_LEN_BYTE_ARRAY> ParquetFLBAScanner;
 
 class RowGroupAPI : public RowGroup{
  public:
-  explicit RowGroupAPI(std::shared_ptr<RowGroupReader>& greader)
-  : group_reader_(greader) {}
+  explicit RowGroupAPI(std::shared_ptr<RowGroupReader>& greader, MemoryAllocator* pool)
+  : group_reader_(greader), pool_(pool) {}
 
   int64_t NumRows() {
     return group_reader_->num_rows();
@@ -108,20 +109,16 @@ class RowGroupAPI : public RowGroup{
 
  private:
   std::shared_ptr<RowGroupReader> group_reader_;
+  MemoryAllocator* pool_;
 };
 
 // Parquet Reader
 class ReaderAPI : public Reader{
  public:
-  ReaderAPI(ExternalInputStream* stream, const MemoryAllocator* pool)
-      : stream_(stream) {
-     source_.reset(new StreamSource(stream));
-     if (pool == NULL) {
-       reader_ = ParquetFileReader::Open(std::move(source_));
-     } else {
-       reader_ = ParquetFileReader::Open(std::move(source_),
-           const_cast<MemoryAllocator*>(pool));
-     }
+  ReaderAPI(ExternalInputStream* stream, MemoryAllocator* pool)
+      : stream_(stream), pool_(pool) {
+     source_.reset(new StreamSource(stream, pool));
+     reader_ = ParquetFileReader::Open(std::move(source_), pool);
   }
 
   Type::type GetSchemaType(int i) {
@@ -160,19 +157,24 @@ class ReaderAPI : public Reader{
     return reader_->num_rows();
   }
 
+  int64_t EstimateMemoryUsage(std::list<int>& selected_columns, int64_t batch_size) {
+    return reader_->EstimateMemoryUsage(false, selected_columns, batch_size).memory;
+  }
+
   boost::shared_ptr<RowGroup> GetRowGroup(int i) {
     auto group_reader = reader_->RowGroup(i);
-    return boost::shared_ptr<RowGroup>(new RowGroupAPI(group_reader));
+    return boost::shared_ptr<RowGroup>(new RowGroupAPI(group_reader, pool_));
   }
 
  private:
   std::unique_ptr<ParquetFileReader> reader_;
   ExternalInputStream* stream_;
+  MemoryAllocator* pool_;
   std::unique_ptr<RandomAccessSource> source_;
 };
 
 boost::shared_ptr<Reader> Reader::getReader(ExternalInputStream* stream,
-    const MemoryAllocator* pool) {
+    MemoryAllocator* pool) {
   return boost::shared_ptr<Reader>(new ReaderAPI(stream, pool));
 }
 
@@ -182,35 +184,35 @@ boost::shared_ptr<ParquetScanner> RowGroupAPI::GetScanner(int i, int batch_size)
   switch (column_reader->type()) {
     case Type::BOOLEAN: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetBoolScanner(column_reader, batch_size));
+          new ParquetBoolScanner(column_reader, batch_size, pool_));
     }
     case Type::INT32: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetInt32Scanner(column_reader, batch_size));
+          new ParquetInt32Scanner(column_reader, batch_size, pool_));
     }
     case Type::INT64: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetInt64Scanner(column_reader, batch_size));
+          new ParquetInt64Scanner(column_reader, batch_size, pool_));
     }
     case Type::INT96: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetInt96Scanner(column_reader, batch_size));
+          new ParquetInt96Scanner(column_reader, batch_size, pool_));
     }
     case Type::FLOAT: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetFloatScanner(column_reader, batch_size));
+          new ParquetFloatScanner(column_reader, batch_size, pool_));
     }
     case Type::DOUBLE: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetDoubleScanner(column_reader, batch_size));
+          new ParquetDoubleScanner(column_reader, batch_size, pool_));
     }
     case Type::BYTE_ARRAY: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetBAScanner(column_reader, batch_size));
+          new ParquetBAScanner(column_reader, batch_size, pool_));
     }
     case Type::FIXED_LEN_BYTE_ARRAY: {
       return boost::shared_ptr<ParquetScanner>(
-          new ParquetFLBAScanner(column_reader, batch_size));
+          new ParquetFLBAScanner(column_reader, batch_size, pool_));
     }
     default: {
       return boost::shared_ptr<ParquetScanner>();

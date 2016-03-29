@@ -259,7 +259,7 @@ ParquetFileReader::MemoryUsage SerializedFile::EstimateMemoryUsage(bool memory_m
         memory_usage.memory += md.total_compressed_size;
       }
       if (md.codec != format::CompressionCodec::UNCOMPRESSED) {
-        memory_usage.memory += md.total_uncompressed_size;
+        memory_usage.memory += 1024*1024; // Upper bound on decompression buffer per page
       }
       for (format::Encoding::type en : md.encodings) {
         memory_usage.has_dictionary = memory_usage.has_dictionary
