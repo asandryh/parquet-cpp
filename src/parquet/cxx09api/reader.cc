@@ -1,66 +1,18 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
+/* Copyright (c) 2016 Hewlett Packard Enterprise Development LP */
+
+#include <parquet/cxx09api/reader.h>
+
+#include <parquet/api/reader.h>
+#include <parquet/column/reader.h>
+#include <parquet/types.h>
 
 #include <memory>
 
-#include <parquet/cxx09api/reader.h>
-#include <parquet/api/reader.h>
-#include <parquet/column/reader.h>
 #include "parquet/column/scanner.h"
-#include <parquet/types.h>
 
-namespace parquet_cpp {
-/*
-// ----------------------------------------------------------------------
-// Define ReaderOptions
-//
-Reader::~Reader() {
-// PASS
-}
-ReaderOptions::ReaderOptions(){
-// PASS
-}
 
-ReaderOptions::~ReaderOptions(){
-// PASS
-}
+namespace parquet {
 
-ReaderOptions& ReaderOptions::include(const std::list<int>& include) {
-  includedColumns.assign(include.begin(), include.end());
-  return *this;
-}
-
-ReaderOptions& ReaderOptions::include(std::vector<int> include) {
-  includedColumns.assign(include.begin(), include.end());
-  return *this;
-}
-const std::list<int>& ReaderOptions::getInclude() const {
-  return includedColumns;
-}
-
-ReaderOptions& ReaderOptions::setMemoryPool(MemoryAllocator& pool) {
-  memoryPool = &pool;
-  return *this;
-}
-
-MemoryAllocator* ReaderOptions::getMemoryPool() const{
-  return memoryPool;
-}
-*/
 // ----------------------------------------------------------------------
 // A stream-like object that reads from an ExternalInputStream
 class StreamSource : public RandomAccessSource {
@@ -81,10 +33,9 @@ class StreamSource : public RandomAccessSource {
 // ----------------------------------------------------------------------
 // StreamSource
 StreamSource::StreamSource(ExternalInputStream* stream) :
- stream_(stream),
- offset_(0) {
-     size_ = stream->GetLength();
- }
+    stream_(stream), offset_(0) {
+  size_ = stream->GetLength();
+}
 
 int64_t StreamSource::Tell() const {
   return offset_;
@@ -146,7 +97,8 @@ typedef ParquetTypedScanner<Type::FIXED_LEN_BYTE_ARRAY> ParquetFLBAScanner;
 
 class RowGroupAPI : public RowGroup{
  public:
-  RowGroupAPI(std::shared_ptr<RowGroupReader>& greader) : group_reader_(greader) {}
+  explicit RowGroupAPI(std::shared_ptr<RowGroupReader>& greader)
+  : group_reader_(greader) {}
 
   int64_t NumRows() {
     return group_reader_->num_rows();
@@ -167,7 +119,8 @@ class ReaderAPI : public Reader{
      if (pool == NULL) {
        reader_ = ParquetFileReader::Open(std::move(source_));
      } else {
-       reader_ = ParquetFileReader::Open(std::move(source_), const_cast<MemoryAllocator*>(pool));
+       reader_ = ParquetFileReader::Open(std::move(source_),
+           const_cast<MemoryAllocator*>(pool));
      }
   }
 
@@ -218,7 +171,8 @@ class ReaderAPI : public Reader{
   std::unique_ptr<RandomAccessSource> source_;
 };
 
-boost::shared_ptr<Reader> Reader::getReader(ExternalInputStream* stream, const MemoryAllocator* pool) {
+boost::shared_ptr<Reader> Reader::getReader(ExternalInputStream* stream,
+    const MemoryAllocator* pool) {
   return boost::shared_ptr<Reader>(new ReaderAPI(stream, pool));
 }
 
@@ -227,34 +181,42 @@ boost::shared_ptr<ParquetScanner> RowGroupAPI::GetScanner(int i, int batch_size)
   auto column_reader = group_reader_->Column(i);
   switch (column_reader->type()) {
     case Type::BOOLEAN: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetBoolScanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetBoolScanner(column_reader, batch_size));
     }
     case Type::INT32: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetInt32Scanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetInt32Scanner(column_reader, batch_size));
     }
     case Type::INT64: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetInt64Scanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetInt64Scanner(column_reader, batch_size));
     }
     case Type::INT96: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetInt96Scanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetInt96Scanner(column_reader, batch_size));
     }
     case Type::FLOAT: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetFloatScanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetFloatScanner(column_reader, batch_size));
     }
     case Type::DOUBLE: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetDoubleScanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetDoubleScanner(column_reader, batch_size));
     }
     case Type::BYTE_ARRAY: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetBAScanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetBAScanner(column_reader, batch_size));
     }
     case Type::FIXED_LEN_BYTE_ARRAY: {
-      return boost::shared_ptr<ParquetScanner>(new ParquetFLBAScanner(column_reader, batch_size));
+      return boost::shared_ptr<ParquetScanner>(
+          new ParquetFLBAScanner(column_reader, batch_size));
     }
-    default:{
+    default: {
       return boost::shared_ptr<ParquetScanner>();
     }
   }
   return boost::shared_ptr<ParquetScanner>();
 }
 
-} // namespace parquet_cpp
+} // namespace parquet

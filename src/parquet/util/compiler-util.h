@@ -56,7 +56,7 @@
     static_assert(sizeof(name) == size, "compiler breaks packing rules")
 #else
   #define STRUCT_END(name, size) \
-    _Pragma("pack()") 
+    _Pragma("pack()")
 #endif
 #else
   #error Unknown compiler, please define structure alignment macros
